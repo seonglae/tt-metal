@@ -11,13 +11,15 @@ Values from HuggingFace config.json for GLM-5.1.
 
 import types
 
+from models.demos.common.prefill.fabric import moe_fabric_payload_size
+
 
 class GLM51Config:
     """GLM 5.1 model dimensions."""
 
     # Core dimensions
     EMB_SIZE = 6144  # embedding dimension
-    FABRIC_PAYLOAD_SIZE = EMB_SIZE  # max fabric packet payload; must stay in sync with migration code
+    FABRIC_PAYLOAD_SIZE = moe_fabric_payload_size(EMB_SIZE)
     MOE_INTERMEDIATE_SIZE = 2048  # MoE FFN hidden dimension
     INTERMEDIATE_SIZE = 12288  # Dense FFN hidden dimension
 

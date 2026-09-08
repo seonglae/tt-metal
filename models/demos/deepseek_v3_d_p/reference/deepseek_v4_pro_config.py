@@ -10,12 +10,15 @@ Values from HuggingFace config.json for DeepSeek-V4-Pro.
 """
 
 
+from models.demos.common.prefill.fabric import moe_fabric_payload_size
+
+
 class DeepSeekV4ProConfig:
     """DeepSeek V4 Pro model dimensions."""
 
     # Core dimensions
     EMB_SIZE = 7168  # embedding dimension
-    FABRIC_PAYLOAD_SIZE = EMB_SIZE  # max fabric packet payload; must stay in sync with migration code
+    FABRIC_PAYLOAD_SIZE = moe_fabric_payload_size(EMB_SIZE)
     MOE_INTERMEDIATE_SIZE = 3072  # MoE FFN hidden dimension
     HEAD_DIM = 512
 
