@@ -29,6 +29,10 @@ class DeepSeekV4FlashConfig:
     # V4 replaces V3/Kimi's sigmoid router affinity with sqrt(softplus(.)).
     SCORE_FUNC = "sqrtsoftplus"
 
+    # Gate-test device-mode scores bar, tightening the shared 0.93: a Blackhole Galaxy 8x4 holds
+    # 0.985 - 0.992 across its 8 SP chips, so the shared relaxation is slack this model does not need.
+    GATE_SCORES_PCC_DEVICE = 0.97
+
     # Model architecture
     NUM_LAYERS = 43
     NUM_HASH_LAYERS = 3
