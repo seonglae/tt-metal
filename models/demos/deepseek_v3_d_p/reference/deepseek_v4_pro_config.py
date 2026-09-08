@@ -29,6 +29,11 @@ class DeepSeekV4ProConfig:
     # V4 replaces V3/Kimi's sigmoid router affinity with sqrt(softplus(.)).
     SCORE_FUNC = "sqrtsoftplus"
 
+    # Gate-test device-mode scores bar, tightening the shared 0.93: 384 experts under sqrtsoftplus
+    # near-tie the top-6 boundary often enough to hold a Blackhole Galaxy 8x4 to 0.954 - 0.966, which
+    # is the floor this bar is set against; the local 2x4 mesh runs a touch higher.
+    GATE_SCORES_PCC_DEVICE = 0.94
+
     # Model architecture
     NUM_LAYERS = 61
     NUM_HASH_LAYERS = 3
