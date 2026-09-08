@@ -1563,6 +1563,26 @@ class DFlashFusedDecoder:
         ttnn.end_trace_capture(self.mesh_device, tid, cq_id=0)
         self.trace = tid
 
+    def reseed(self, anchor_id, start):
+        """Re-point the ALREADY-captured trace at a new request WITHOUT
+        re-capturing (the ~2.6s serving bootstrap). Valid only when the new
+        request shares this decoder's packed-verify width bucket (pv_sk depends
+        on start bucketed to 1024). The caller refreshes the mirror
+        (prefill_ingest) and the KV page tables (refresh_page_tables); this
+        re-uploads the per-request packed-verify masks/positions and the
+        first-iteration anchor/position into the persistent input buffers the
+        captured body reads."""
+        self.anchor, self.start = anchor_id, start
+        if self.use_packed:
+            self._pv_upload(start)
+        self._upload_iter_inputs(anchor_id, start)
+
+    def pv_bucket(self, start, max_new):
+        """The packed-verify width bucket for a (start, horizon) -- decoders are
+        reusable across requests that share it. Mirrors _pv_setup's pv_sk."""
+        horizon = start + max_new + self.P_v + 64
+        return ((horizon + 1023) // 1024) * 1024
+
     def restore_model_logits_mode(self):
         """Leave the target in its default gathered-logits mode.
 

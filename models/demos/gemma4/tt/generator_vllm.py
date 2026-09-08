@@ -1976,6 +1976,7 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         super().__init__(*args, **kwargs)
         self._spec_drafter = None
         self._spec_decoder = None
+        self._spec_decoder_bucket = None  # packed-verify width bucket of the cached decoder (reuse key)
         self._spec_trace_ids = []
         self._spec_pending = None  # (taps, prompt_len) awaiting first decode
         self._spec_active = False
@@ -2093,7 +2094,6 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         self._spec_pending = None
         if start != n:
             logger.warning(f"Gemma4DFlash: first decode start_pos {start} != prompt_len {n}")
-        self._spec_release_decoder()
         kv_layers = kv_cache
         if (
             isinstance(kv_layers, (list, tuple))
@@ -2104,29 +2104,44 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         ):
             kv_layers = kv_layers[0]
         model0 = self.model[0]
+        pt = page_table[:1] if page_table is not None else None
+        horizon = self._spec_horizon
         t0 = _time.time()
-        dec = DFlashFusedDecoder(
-            model0,
-            self._spec_get_drafter(),
-            kv_layers,
-            page_table[:1] if page_table is not None else None,
-        )
-        dec.prefill_ingest(taps, n)
-        dec.capture(int(anchor_id), int(start), max_new=self._spec_horizon)
-        self._spec_decoder = dec
+        # REUSE the cached fused decoder when the new request shares its packed-
+        # verify width bucket (pv_sk buckets by start/1024): the captured trace
+        # reads persistent input buffers, so refreshing the KV page tables +
+        # re-ingesting the prompt taps + re-uploading the anchor/pv inputs
+        # re-points it at this request WITHOUT the ~2.6 s capture and WITHOUT
+        # allocating/freeing a fresh decoder's buffers (which fragments DRAM).
+        # A bucket change (different prompt length band) releases + re-captures.
+        dec = self._spec_decoder
+        reused = dec is not None and pt is not None and dec.pv_bucket(int(start), horizon) == self._spec_decoder_bucket
+        if reused:
+            dec.refresh_page_tables(pt)
+            dec.prefill_ingest(taps, n)
+            dec.reseed(int(anchor_id), int(start))
+        else:
+            self._spec_release_decoder()
+            dec = DFlashFusedDecoder(model0, self._spec_get_drafter(), kv_layers, pt)
+            dec.prefill_ingest(taps, n)
+            dec.capture(int(anchor_id), int(start), max_new=horizon)
+            self._spec_decoder = dec
+            self._spec_decoder_bucket = dec.pv_bucket(int(start), horizon)
         self._spec_active = True
         self._spec_first_step = True
         self._spec_last_pt = None
         # verify masks/tables were sized for this horizon; past it the packed
         # verify would attend past its capture -- end the request cleanly then.
-        self._spec_budget_end = int(start) + self._spec_horizon - self._SPEC_N - 1
+        self._spec_budget_end = int(start) + horizon - self._SPEC_N - 1
         logger.info(
-            f"Gemma4DFlash session: ingest+capture {_time.time()-t0:.1f}s " f"(anchor={int(anchor_id)}, start={start})"
+            f"Gemma4DFlash session: {'REUSE' if reused else 'capture'} {_time.time()-t0:.2f}s "
+            f"(anchor={int(anchor_id)}, start={start}, bucket={self._spec_decoder_bucket})"
         )
 
     def _spec_release_decoder(self):
         dec = self._spec_decoder
         self._spec_decoder = None
+        self._spec_decoder_bucket = None
         self._spec_active = False
         if dec is None:
             return
@@ -2293,7 +2308,11 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
 
     # -- plugin lifecycle hooks (block-output contract) -----------------------
     def release_request(self, row: int) -> None:
-        """Request finished: tear down its spec session (B=1 -> row ignored)."""
+        """Request finished (B=1 -> row ignored). KEEP the cached fused decoder
+        alive so the next request in the same packed-verify width bucket reuses
+        it -- no ~2.6 s re-capture, no per-request buffer churn. The decoder is
+        released on a bucket change (_spec_bootstrap) or at capture teardown
+        (release_persistent_capture)."""
         it = getattr(self, "_spec_iters", 0)
         if it:
             tk = getattr(self, "_spec_tokens", 0)
@@ -2301,7 +2320,7 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         self._spec_iters = 0
         self._spec_tokens = 0
         self._spec_pending = None
-        self._spec_release_decoder()
+        self._spec_active = False  # session inactive, decoder retained for reuse
 
     def release_persistent_capture(self) -> None:
         self._spec_pending = None
