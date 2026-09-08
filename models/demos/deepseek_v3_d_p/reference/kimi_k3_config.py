@@ -56,9 +56,9 @@ class KimiK3Config:
     MAX_GATE_SEQ_LEN_PER_CHIP = 3200
 
     # Gate-test device-mode scores bar, tightening the shared 0.93; see #52569. 896 experts under
-    # sigmoid near-tie the 16th and 17th scores often enough that device precision swaps a pick, and
-    # the spread across Blackhole Galaxies is 0.886 - 0.952, so this bar sits inside that spread
-    # rather than below it.
+    # sigmoid near-tie the 16th and 17th scores often enough that device precision swaps a pick: a
+    # Blackhole Galaxy 8x4 holds 0.948 - 0.957, and the narrower 2x4 mesh -- a quarter the tokens per
+    # PCC, so one swapped pick costs more -- floors at 0.945, which is what this bar is set against.
     GATE_SCORES_PCC_DEVICE = 0.94
     # Upstream KimiSparseMoeBlock builds ONE KimiMLP for the shared expert, not num_shared_experts of
     # them: shared_experts.gate_proj.weight is [6144, 7168].
