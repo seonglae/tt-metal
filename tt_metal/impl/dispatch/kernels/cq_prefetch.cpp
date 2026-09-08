@@ -2086,8 +2086,8 @@ uint32_t process_stall(uintptr_t cmd_ptr) {
     count++;
 
     WAYPOINT("PSW");
-    volatile tt_l1_ptr uint32_t* sem_addr = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(
-        get_semaphore<programmable_core_type>(my_downstream_sync_sem_id));
+    volatile tt_l1_ptr uint32_t* sem_addr =
+        uncached_l1_ptr<uint32_t>(get_semaphore<programmable_core_type>(my_downstream_sync_sem_id));
     uint32_t heartbeat = 0;
     do {
         invalidate_l1_cache();
