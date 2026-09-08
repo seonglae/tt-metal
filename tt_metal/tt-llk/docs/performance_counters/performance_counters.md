@@ -253,10 +253,10 @@ The L1 bank has only 8 physical counters, but the hardware exposes 16 (WH) or 42
 |-----|------------|------------|
 | 0 | unpacker 0, port 1 (pack1+ECC), TDMA bundles, NoC Ring 0 | unpacker 0, port 1 (unpacker1+ECC), TDMA bundles, NoC Ring 0 |
 | 1 | ext unpackers, NoC Ring 1, TDMA extended | ext unpackers 1-3, NoC Ring 1, TDMA packer 2 |
-| 2 | — | ext unpackers 4-7, NoC Ring 0 secondary channels |
-| 3 | — | NoC Ring 1 secondary channels, ext packers 2-5 |
-| 4 | — | ext packers 6-7, tag search / packer 1, ext unpackers 8-12 |
-| 5 | — | ext unpackers 13-14 (only slots 0 and 1 are wired; slots 2-7 read 0) |
+| 2 | not present | ext unpackers 4-7, NoC Ring 0 secondary channels |
+| 3 | not present | NoC Ring 1 secondary channels, ext packers 2-5 |
+| 4 | not present | ext packers 6-7, tag search / packer 1, ext unpackers 8-12 |
+| 5 | not present | ext unpackers 13-14 (only slots 0 and 1 are wired; slots 2-7 read 0) |
 
 The mux routes signals at **count time**: whichever group is selected when the counters start is the only one measured during the window, so one run captures one L1 group. The harness pins the group at compile time (`LLK_PERF_L1_MUX_GROUP`, default 0) and the host read fails loudly on a snapshot captured with a different group; capturing another group means another run with another build.
 
@@ -268,7 +268,7 @@ The metric formulas live in one shared module, [tools/tracy/perf_metrics_common.
 
 **Metric families.** `*_pct` keys are bounded percentages (0-100%). `*_ratio` keys are unbounded raw ratios that can exceed 1.0 by design (cross-domain numerator and denominator, or overlapping sums) and are never clamped.
 
-**N/A semantics.** A metric whose counters do not exist on the running architecture is empty in the CSV, never 0 — the harness computes per-zone snapshots, and any counter absent from the captured groups makes its dependent cross-bank metrics empty too. In particular the Wormhole-only per-engine packer metrics are empty on Blackhole, and the Blackhole-only extended L1 groups are empty on Wormhole.
+**N/A semantics.** A metric whose counters do not exist on the running architecture is empty in the CSV, never 0. The harness computes per-zone snapshots, and any counter absent from the captured groups makes its dependent cross-bank metrics empty too. In particular the Wormhole-only per-engine packer metrics are empty on Blackhole, and the Blackhole-only extended L1 groups are empty on Wormhole.
 
 **Per-zone, not per-op.** Unlike the Tracy tool (which aggregates Min/Median/Max/Avg across cores per operation), this harness measures one core and reports each zone (`INIT`, `TILE_LOOP`) separately, so a metric here answers "what did this zone of this variant do", not "how did the op behave across the grid".
 
