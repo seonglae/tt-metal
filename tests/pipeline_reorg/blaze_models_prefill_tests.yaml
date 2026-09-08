@@ -77,6 +77,7 @@
       timeout: 14
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -100,6 +101,7 @@
       timeout: 11
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -119,6 +121,7 @@
       timeout: 24
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -138,6 +141,7 @@
       timeout: 16
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -161,6 +165,7 @@
       timeout: 12
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 - name: "(Kimi-K2.7-1T) prefill transformer determinism 5k"
@@ -183,6 +188,7 @@
       timeout: 15
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 - name: "(Kimi-K2.7-1T) chunked prefill padded accuracy 15k@5k no-trace"
@@ -209,6 +215,7 @@
       timeout: 26
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -238,6 +245,7 @@
       timeout: 26
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -273,6 +281,7 @@
       timeout: 18
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -311,6 +320,7 @@
       timeout: 18
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -340,6 +350,7 @@
       timeout: 10
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -362,6 +373,7 @@
       timeout: 9
   owner_id: U09L76N1MAT
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -394,6 +406,7 @@
       timeout: 30
   owner_id: U09L76N1MAT  # Nenad Babin
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -415,6 +428,7 @@
       timeout: 6
   owner_id: U0ACLAM77PS  # Kosta Grujcic
   team: models
+  budget_type: demo
   sp_config: sc1
 
 - name: "(Kimi-K3-2.8T) MLA chunked accuracy 10k@5k + determinism 5k@5k"
@@ -435,6 +449,7 @@
       timeout: 6
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -456,6 +471,7 @@
       timeout: 6
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -478,6 +494,7 @@
       timeout: 5
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -497,6 +514,7 @@
       timeout: 26
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -524,6 +542,7 @@
       timeout: 16
   owner_id: U09LK84G4TF  # Nikola Milicevic
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -544,6 +563,7 @@
       timeout: 20
   owner_id: U09LK84G4TF  # Nikola Milicevic
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -571,6 +591,7 @@
       timeout: 30
   owner_id: U09LK84G4TF  # Nikola Milicevic
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -594,6 +615,7 @@
       timeout: 36
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -617,6 +639,7 @@
       timeout: 58
   owner_id: U07N3CUUN05  # Iva Potkonjak
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -638,6 +661,7 @@
       timeout: 3
   owner_id: U08SXRPCTJ5  # Janko Mitrovic
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -657,6 +681,7 @@
       timeout: 3
   owner_id: U08SXRPCTJ5  # Janko Mitrovic
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -692,6 +717,7 @@
       timeout: 60
   owner_id: U08ECJQ848G # Viacheslav Melnykov
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -736,6 +762,7 @@
       timeout: 28
   owner_id: U08ECJQ848G # Viacheslav Melnykov
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -766,6 +793,7 @@
       timeout: 20
   owner_id: U0AC4LTJH1P # Jaksa Jovicic
   team: shield
+  budget_type: demo
   sp_config: sc4
 
 
@@ -795,6 +823,7 @@
       timeout: 30
   owner_id: U0AC4LTJH1P # Jaksa Jovicic
   team: shield
+  budget_type: demo
   sp_config: sc4
 
 
@@ -828,6 +857,7 @@
       timeout: 20
   owner_id: U08RL15T4N8
   team: models
+  budget_type: demo
   sp_config: sc1
 
 
@@ -857,4 +887,5 @@
       timeout: 10
   owner_id: U085GDCAZTN # Pavle Josipovic
   team: ttnn
+  budget_type: demo
   sp_config: sc1
