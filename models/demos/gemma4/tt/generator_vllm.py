@@ -1962,6 +1962,14 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         # concurrency>1 / throughput operating point -- see decode_forward.
         "output_tokens_per_step": _SPEC_BLOCK,
         "tt_spec_variable_output": _SPEC_BLOCK > 1,
+        # ADAPTIVE block-output: emit the spec block only when decoding ALONE
+        # (batch==1); batch>1 decodes as plain baseline (1 token/request, padded
+        # to the block width so the spec-variable runner strips it back to 1).
+        # This lets ONE server run max_num_seqs>1 -- dFlash at conc-1, baseline
+        # batched at conc>1 (never worse) -- instead of the static max_num_seqs=1
+        # block-output deployment. The scheduler reserves the K-token block only
+        # on a solo decode step. Off when block-output itself is off (BLOCK<=1).
+        "tt_adaptive_block_output": _SPEC_BLOCK > 1,
     }
 
     def __init__(self, *args, **kwargs):
@@ -2014,15 +2022,15 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         return self._spec_drafter
 
     def warmup_model_decode(self, *args, **kwargs):
-        """No-op in spec mode: decode is the per-session fused spec trace,
-        captured at the first decode of each request; the base decode buckets
-        are never used. In throughput mode (GEMMA4_DFLASH_SERVE_BLOCK=1) the
-        baseline batched decode IS used, so warm its buckets normally."""
+        """No-op in spec/adaptive mode: solo decode is the per-session fused spec
+        trace; the batched baseline decode cannot be warmed through this model's
+        (adaptive) decode_forward -- the base warmup reader rejects the padded
+        block output. In throughput mode (GEMMA4_DFLASH_SERVE_BLOCK=1) warm the
+        baseline buckets normally."""
         if self._SPEC_BLOCK <= 1:
             return super().warmup_model_decode(*args, **kwargs)
         del args, kwargs
         self._decode_warmup_complete = True
-        logger.info("Gemma4DFlash: decode warmup is a no-op (per-session fused spec trace)")
 
     # -- prefill: capture taps (untraced) ------------------------------------
     def prefill_forward(self, *args, **kwargs):
@@ -2034,6 +2042,19 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
         # batched (concurrency>1) prefill, serve via the plain baseline path and
         # skip the drafter tap capture entirely.
         if self._SPEC_BLOCK <= 1 or (tokens is not None and int(tokens.shape[0]) != 1):
+            # model0's dFlash tap-capture state is SHARED; a prior solo session
+            # can leave it armed (with decode-sized buffers). Disarm before a
+            # plain baseline prefill so the tap hook does not fire on it (a stale
+            # buffer copy would shape-mismatch against the prefill hidden).
+            try:
+                self.model[0].dflash_capture_taps(None)
+            except Exception:
+                pass
+            if self._SPEC_BLOCK > 1:
+                # gemma4's prefill KV-history write (_left_pad_kv_to_hist) is not
+                # trace-safe; the dFlash spec prefill runs untraced for the same
+                # reason. Keep the adaptive batched baseline prefill untraced too.
+                kwargs["enable_trace"] = False
             return super().prefill_forward(*args, **kwargs)
         drafter = self._spec_get_drafter()
         model0 = self.model[0]
@@ -2144,6 +2165,33 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
                 except Exception:
                     pass
 
+    def _adaptive_pad_baseline(self, tt_out, num_reqs):
+        """Convert a batched baseline decode output into a host ``[num_reqs, K]``
+        block: one real token per request followed by ``TT_SPEC_PAD_TOKEN_ID``
+        pads (K = self._SPEC_BLOCK). The spec-variable runner strips the pad tail
+        back to one token/request, so a concurrency>1 step commits plain baseline
+        decode while satisfying the block-output width contract.
+        """
+        import torch
+
+        toks = tt_out
+        if not isinstance(toks, torch.Tensor):
+            # device (or host-ttnn) output -> host torch via the base path.
+            # process_decode_output_host returns (tokens_or_logits, logprobs).
+            host = super().read_decode_output(tt_out, async_read=False)
+            res = super().process_decode_output_host(host, is_tokens=True)
+            toks = res[0] if isinstance(res, (tuple, list)) else res
+        if not isinstance(toks, torch.Tensor):
+            toks = torch.as_tensor(toks)
+        # Greedy fallback if the base returned logits ([., vocab]) rather than
+        # sampled tokens (device sampling should give tokens under decode_only).
+        if toks.dim() >= 2 and toks.shape[-1] > 1:
+            toks = toks.argmax(dim=-1)
+        toks = toks.reshape(-1)
+        out = torch.full((num_reqs, self._SPEC_BLOCK), -1, dtype=torch.int32)
+        out[:, 0] = toks[:num_reqs].to(torch.int32)
+        return out
+
     def decode_forward(self, *args, page_tables_per_layer=None, **kwargs):
         tokens = kwargs.get("tokens")
         if tokens is None and args:
@@ -2153,18 +2201,45 @@ class Gemma4DFlashForCausalLM(Gemma4ForCausalLM):
             start_pos = args[1]
         if tokens is None:
             raise ValueError("Gemma4DFlash decode expects token input")
-        # Baseline pickup for concurrency>1: dFlash spec is a B=1 block-output
-        # session. A batched decode (or a non-block-output/throughput
-        # deployment with GEMMA4_DFLASH_SERVE_BLOCK=1) is served by the plain
-        # baseline decode instead of the spec drafter.
-        if self._SPEC_BLOCK <= 1 or int(tokens.shape[0]) != 1:
+        batch = int(tokens.shape[0])
+        # Throughput mode (GEMMA4_DFLASH_SERVE_BLOCK=1 -> block-output OFF): plain
+        # batched baseline at width 1, no spec, no padding.
+        if self._SPEC_BLOCK <= 1:
             return super().decode_forward(*args, page_tables_per_layer=page_tables_per_layer, **kwargs)
+        # Adaptive block-output: a BATCHED decode step (concurrency>1) runs plain
+        # baseline and returns a host block padded to the reserved width K, so the
+        # spec-variable runner strips it back to one token/request. The scheduler
+        # reserved a single placeholder for this batched step (see TTScheduler),
+        # matching the one real token per row. A solo request that just joined a
+        # batch drops its dFlash session first -- baseline then owns its KV from
+        # vLLM's committed position.
+        if batch != 1:
+            if self._spec_active or self._spec_pending is not None:
+                self._spec_pending = None
+                self._spec_release_decoder()
+            # Disarm any shared tap capture so the baseline decode forward does
+            # not fire the dFlash tap hook (see prefill_forward).
+            try:
+                self.model[0].dflash_capture_taps(None)
+            except Exception:
+                pass
+            tt_out = super().decode_forward(*args, page_tables_per_layer=page_tables_per_layer, **kwargs)
+            return self._adaptive_pad_baseline(tt_out, batch)
         anchor_from_runner = int(tokens.reshape(-1)[0])
         if self._spec_pending is not None:
             start = int(start_pos.reshape(-1)[0]) if start_pos is not None else None
             self._spec_bootstrap(anchor_from_runner, start, kwargs.get("page_table"), kwargs.get("kv_cache"))
         if not self._spec_active:
-            raise RuntimeError("Gemma4DFlash decode without an active session (prefill first)")
+            # Solo decode but no dFlash session -- e.g. a request that prefilled
+            # BATCHED (concurrency>1, no tap capture) and is now decoding alone
+            # after its peers finished. It cannot speculate (no taps), so serve
+            # it as plain baseline, padded to the block width.
+            try:
+                self.model[0].dflash_capture_taps(None)
+            except Exception:
+                pass
+            tt_out = super().decode_forward(*args, page_tables_per_layer=page_tables_per_layer, **kwargs)
+            return self._adaptive_pad_baseline(tt_out, batch)
         dec = self._spec_decoder
         if not self._spec_first_step and anchor_from_runner != dec.anchor:
             logger.warning(
