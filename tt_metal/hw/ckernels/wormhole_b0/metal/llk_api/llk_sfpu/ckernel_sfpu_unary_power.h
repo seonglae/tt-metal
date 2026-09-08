@@ -239,6 +239,8 @@ sfpi_inline sfpi::vFloat _sfpu_unary_power_61f_updated_(const sfpi::vFloat& base
     // 1) Compute log2(base)
     // 2) Compute base**pow = 2**(pow * log2(base))
 
+    sfpi::hrp _;  // Declare high register pressure
+
     // Step 1: Compute log2(base) using improved log
     // Normalize base to calculation range
     sfpi::vFloat abs_base = sfpi::abs(base);
