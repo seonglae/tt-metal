@@ -576,7 +576,7 @@ Data Hazard Stall = (MATH_INSTRN_AVAILABLE - MATH_NOT_D2S_STALLED) /
                     MATH_INSTRN_AVAILABLE * 100
 ```
 
-`MATH_NOT_D2S_STALLED` is `math_instrn_valid & ~dest2src_post_stall` — cycles math was available *and not* D2A-stalled. Subtracting from `MATH_INSTRN_AVAILABLE` gives the stall count.
+`MATH_NOT_D2S_STALLED` is `math_instrn_valid & ~dest2src_post_stall`: cycles math was available *and not* D2A-stalled. Subtracting from `MATH_INSTRN_AVAILABLE` gives the stall count.
 
 **Use case:** Surfaces dest-to-src register-movement overhead.
 
