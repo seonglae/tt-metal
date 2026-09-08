@@ -304,12 +304,16 @@ def run_sparse_mla_accuracy_case(
         is_balanced=False,
         topology=topology,
         tt_kvpe_cache=tt_kvpe_cache,
+        # Sparse has no single-shot path: this run IS one chunk, spanning the whole sequence, at offset 0.
+        is_chunked=True,
+        active_seq_len=seq_len,
+        actual_start=0,
     )
 
     cache_dir = cpu_ref_cache_dir(variant)
     logger.info(f"[{variant.name}] sparse MLA accuracy: running CPU reference")
-    # accuracy runs the indexer's natural single-shot path (no block-cyclic index_kv_cache to read
-    # back), so the index-cache reference is unused here — chunked/rotated cover the block-cyclic cache.
+    # ref_index (the indexer key-cache truth) is dropped: one full-sequence chunk fills a single
+    # block-cyclic slab, so chunked/rotated are where that cache is asserted (SPARSE_INDEX_PCC).
     ref_output, ref_kvpe, _ = run_cpu_reference(
         config, weights, hidden_states, seq_len, cache_dir, cache_tag=f"{src_tag}_funcidx"
     )
@@ -375,6 +379,10 @@ def run_sparse_mla_determinism_case(
             is_balanced=False,
             topology=topology,
             tt_kvpe_cache=tt_kvpe_cache,
+            # Sparse has no single-shot path: one chunk, spanning the whole sequence, at offset 0.
+            is_chunked=True,
+            active_seq_len=seq_len,
+            actual_start=0,
         )
         logger.debug(f"[{variant.name}] sparse MLA determinism run {run_idx + 1}: collecting TT output")
         current = ttnn.to_torch(
@@ -1064,6 +1072,10 @@ def test_sparse_mla_indexer_reuse(
         tp_axis=tp_axis,
         is_balanced=False,
         topology=topology,
+        # Sparse has no single-shot path: one chunk, spanning the whole sequence, at offset 0.
+        is_chunked=True,
+        active_seq_len=seq_len,
+        actual_start=0,
     )
     # A: compute the indexer, capture its top-k selection + output.
     out_a, _, _, shard_dims, idx = run_mla_inference(tt_kvpe_cache=_kvpe(), return_indices=True, **common)
