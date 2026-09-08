@@ -708,6 +708,10 @@ private:
 
 // Launch `program` on every device in `mesh_device` via EnqueueMeshWorkload, blocking until completion.
 //
+// Exception: a service workload (a program targeting claimed service cores) is routed by
+// EnqueueMeshWorkload to slow dispatch, which rings GO and returns without waiting - `blocking` is not
+// consulted on that path. Callers that launch onto claimed service cores must synchronize themselves.
+//
 // @return MeshWorkload that takes ownership of the program.
 distributed::MeshWorkload LaunchProgram(distributed::MeshDevice& mesh_device, Program&& program);
 
