@@ -109,7 +109,13 @@ sizes:
     aliases: ["Qwen3-32B", "Qwen/Qwen3-32B"]
     skus:
       wh_llmbox_perf:
-        trace_region_size: 90000000
+        # 2026-09-08: the eval-32-perf-report leg (#53575) captures the full prefill+decode trace set
+        # with on-device sampling on T3K. Measured in CI (run 34079232201): 9 of 11 traces used
+        # 6,963,200 B/bank of the 7,503,872 B/bank that 90 MB gives, and the 10th (573,440 B/bank)
+        # failed with "Out of Memory: Not enough space to allocate 6832128 B TRACE buffer". The full
+        # set needs >= ~97.3 MB; 120 MB leaves ~23% headroom (p300x2 uses 100 MB, Galaxy full
+        # capture measured 102 MB).
+        trace_region_size: 120000000
       wh_galaxy_perf:
         trace_region_size: 200000000
       bh_p150:
